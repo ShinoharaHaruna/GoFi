@@ -1,0 +1,20 @@
+services:
+  db:
+    image: postgres:17-bookworm
+    restart: always
+    environment:
+      POSTGRES_DB: gofi_db
+      POSTGRES_USER: gofi_user
+      POSTGRES_PASSWORD: gofi_local_dev
+    ports:
+      - "54320:5432"
+    volumes:
+      - gofi_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gofi_user -d gofi_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  gofi_db_data:

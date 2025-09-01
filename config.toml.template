@@ -1,0 +1,27 @@
+# GoFi 配置文件模板
+# GoFi Configuration File Template
+
+# Gin 运行模式 (debug, release, test)
+# Gin run mode (debug, release, test)
+GIN_MODE = "debug"
+
+# GoFi 服务器监听端口
+# GoFi server listening port
+GOFI_PORT = "8080"
+
+# GoFi 文件存储根目录
+# GoFi base directory for file storage
+GOFI_BASE_DIR = "./data"
+
+# 数据库连接 URL
+# Database connection URL
+# 示例: "postgres://user:password@localhost:5432/dbname?sslmode=disable"
+# Example: "postgres://user:password@localhost:5432/dbname?sslmode=disable"
+DATABASE_URL = ""
+
+# --- 安全令牌 --- #
+# --- Security Tokens --- #
+
+# 创建短链接的令牌 (如果为空，则禁用短链接功能)
+# Token for creating short links (if empty, the short link feature is disabled)
+GOFI_SHORTEN_TOKEN = ""

@@ -1,0 +1,233 @@
+basePath: /
+definitions:
+  handlers.CreateShortLinkRequest:
+    properties:
+      filename:
+        type: string
+    required:
+    - filename
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: support@swagger.io
+    name: API Support
+    url: http://www.swagger.io/support
+  description: This is a simple file sharing service.
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: GoFi API
+  version: "1.0"
+paths:
+  /{filename}:
+    get:
+      description: Downloads a file. Public files are accessible directly. For private
+        files, a 'download' type token is required via query parameter or Authorization
+        header.
+      parameters:
+      - description: Filename
+        in: path
+        name: filename
+        required: true
+        type: string
+      - description: Authentication token for private files
+        in: query
+        name: token
+        type: string
+      produces:
+      - application/octet-stream
+      responses:
+        "200":
+          description: The requested file
+          schema:
+            type: file
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Download a file
+      tags:
+      - Files
+  /s/{shortcode}:
+    get:
+      description: Downloads a file using a short code. If the original file is private,
+        a 'download' type token is required.
+      parameters:
+      - description: Short code of the file
+        in: path
+        name: shortcode
+        required: true
+        type: string
+      - description: Authentication token for private files
+        in: query
+        name: token
+        type: string
+      produces:
+      - application/octet-stream
+      responses:
+        "200":
+          description: The requested file
+          schema:
+            type: file
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      summary: Download a file from a short link
+      tags:
+      - Short Links
+  /shorten:
+    post:
+      consumes:
+      - application/json
+      description: Creates a short link for an existing file. Requires a 'shorten'
+        type token.
+      parameters:
+      - description: Request body containing the filename
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CreateShortLinkRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              short_url_path:
+                type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Create a short link
+      tags:
+      - Short Links
+  /upload:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Uploads a file to either the public or private directory. Requires
+        an 'upload' type token.
+      parameters:
+      - description: File to upload
+        in: formData
+        name: file
+        required: true
+        type: file
+      - description: 'Target directory: ''public'' or ''private'' (default)'
+        enum:
+        - public
+        - private
+        in: header
+        name: X-GoFi-Target-Dir
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              download_path:
+                type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Upload a file
+      tags:
+      - Files
+securityDefinitions:
+  ApiKeyAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

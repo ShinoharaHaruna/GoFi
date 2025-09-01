@@ -24,9 +24,13 @@ profile.cov
 go.work
 go.work.sum
 
-# env file
+# 本地环境变量文件
+# Local environment variables file
 .env
+config.toml
 
 # Editor/IDE
 # .idea/
 # .vscode/
+
+data/
