@@ -18,10 +18,3 @@ GOFI_BASE_DIR = "./data"
 # 示例: "postgres://user:password@localhost:5432/dbname?sslmode=disable"
 # Example: "postgres://user:password@localhost:5432/dbname?sslmode=disable"
 DATABASE_URL = ""
-
-# --- 安全令牌 --- #
-# --- Security Tokens --- #
-
-# 创建短链接的令牌 (如果为空，则禁用短链接功能)
-# Token for creating short links (if empty, the short link feature is disabled)
-GOFI_SHORTEN_TOKEN = ""
