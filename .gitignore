@@ -34,3 +34,4 @@ config.toml
 # .vscode/
 
 data/
+gofi
