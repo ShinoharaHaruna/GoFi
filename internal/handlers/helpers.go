@@ -19,8 +19,8 @@ func isTokenValid(c *gin.Context, keyType models.ApiKeyType) bool {
 	// 1. Get Token from Header, Path, Query in order of priority
 	token := ""
 	authHeader := c.GetHeader("Authorization")
-	if strings.HasPrefix(authHeader, "Bearer ") {
-		token = strings.TrimPrefix(authHeader, "Bearer ")
+	if after, ok := strings.CutPrefix(authHeader, "Bearer "); ok {
+		token = after
 	} else {
 		token = c.Query("token")
 	}
@@ -45,7 +45,7 @@ func isTokenValid(c *gin.Context, keyType models.ApiKeyType) bool {
 // generateUniqueShortCode 生成一个在数据库中唯一的短代码
 // generateUniqueShortCode generates a short code that is unique in the database
 func generateUniqueShortCode(length int) (string, error) {
-	for i := 0; i < 10; i++ { // 尝试 10 次以避免无限循环 / Try 10 times to avoid an infinite loop
+	for range 10 { // 尝试 10 次以避免无限循环 / Try 10 times to avoid an infinite loop
 		code, err := generateRandomString(length)
 		if err != nil {
 			return "", err
