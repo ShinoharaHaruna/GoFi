@@ -10,6 +10,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+var version = "dev" // 将在编译时被覆盖 (will be overwritten at build time)
+
 //	@title			GoFi API
 //	@version		1.0
 //	@description	This is a simple file sharing service.
@@ -29,6 +31,7 @@ import (
 // @in							header
 // @name						Authorization
 func main() {
+	log.Printf("Starting GoFi, version: %s", version)
 	// 加载配置
 	// Load configuration
 	cfg, err := config.LoadConfig()
