@@ -69,6 +69,24 @@ paths:
       summary: Download a file
       tags:
       - Files
+  /health:
+    get:
+      consumes:
+      - '*/*'
+      description: |-
+        获取服务状态
+        Show the status of server.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 健康检查
+      tags:
+      - health
   /s/{shortcode}:
     get:
       description: Downloads a file using a short code. If the original file is private,
