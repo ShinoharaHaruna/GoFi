@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 
@@ -31,10 +32,17 @@ var version = "dev" // 将在编译时被覆盖 (will be overwritten at build ti
 // @in							header
 // @name						Authorization
 func main() {
+	configPath := parseFlags()
+
 	log.Printf("Starting GoFi, version: %s", version)
+	if configPath != "" {
+		log.Printf("Loading configuration from file: %s", configPath)
+	} else {
+		log.Printf("Loading configuration using default path ./config.toml (if present) and environment variables")
+	}
 	// 加载配置
 	// Load configuration
-	cfg, err := config.LoadConfig()
+	cfg, err := config.LoadConfig(configPath)
 	if err != nil {
 		log.Fatalf("Failed to load configuration: %v", err)
 	}
@@ -60,4 +68,14 @@ func main() {
 	if err := r.Run(listenAddr); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
+}
+
+// parseFlags 解析命令行参数，返回配置文件路径（可为空）
+// parseFlags parses CLI flags and returns the config file path (can be empty)
+func parseFlags() string {
+	var configPath string
+	flag.StringVar(&configPath, "config", "", "Path to GoFi config file")
+	flag.StringVar(&configPath, "c", "", "Path to GoFi config file (shorthand)")
+	flag.Parse()
+	return configPath
 }
