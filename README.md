@@ -83,6 +83,24 @@ Once the server is running, you can access the Swagger UI at:
 - `POST /shorten`: Create a short link for a file.
 - `GET /s/:shortcode`: Download a file using its short link.
 
+### Initial API Keys
+
+Certain endpoints require API keys. After the database is initialized, insert keys into the `api_keys` table for each usage type:
+
+```sql
+INSERT INTO api_keys (key, type, is_enabled)
+VALUES
+  ('<your-upload-key>', 'upload', true),
+  ('<your-download-key>', 'download', true),
+  ('<your-shorten-key>', 'shorten', true);
+```
+
+Each key controls access to the matching feature:
+
+1. **upload** – required when calling `POST /upload`.
+2. **download** – required when accessing private files or short links pointing to private files.
+3. **shorten** – required for `POST /shorten`, `DELETE /shorten/:shortcode`, and `POST /shorten/:shortcode/enable`.
+
 ## Docker Support
 
 This project includes a `docker-compose.yml` file to easily set up a PostgreSQL database for local development.
