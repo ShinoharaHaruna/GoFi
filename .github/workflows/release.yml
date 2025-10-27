@@ -1,0 +1,90 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  build-and-release:
+    name: Build and Release
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Read release version
+        id: version
+        run: |
+          VERSION=$(cat VERSION)
+          if [ -z "$VERSION" ]; then
+            echo "VERSION file is empty." >&2
+            exit 1
+          fi
+          echo "value=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Check existing release
+        id: release_check
+        uses: actions/github-script@v7
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+        with:
+          script: |
+            const version = process.env.VERSION;
+            const tag = `v${version}`;
+            try {
+              await github.rest.repos.getReleaseByTag({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                tag,
+              });
+              core.info(`Release ${tag} already exists.`);
+              core.setOutput('exists', 'true');
+            } catch (error) {
+              if (error.status === 404) {
+                core.info(`Release ${tag} not found. Will create.`);
+                core.setOutput('exists', 'false');
+              } else {
+                throw error;
+              }
+            }
+
+      - name: Setup Go
+        if: steps.release_check.outputs.exists == 'false'
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build GoFi binary
+        if: steps.release_check.outputs.exists == 'false'
+        run: bash scripts/build.sh
+
+      - name: Prepare release asset
+        if: steps.release_check.outputs.exists == 'false'
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          mkdir -p dist
+          cp build/GoFi "dist/gofi-linux-amd64-${VERSION}"
+
+      - name: Publish release
+        if: steps.release_check.outputs.exists == 'false'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.value }}
+          name: GoFi v${{ steps.version.outputs.value }}
+          files: |
+            dist/gofi-linux-amd64-${{ steps.version.outputs.value }}
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Skip release
+        if: steps.release_check.outputs.exists == 'true'
+        run: echo "Release v${{ steps.version.outputs.value }} already exists. Skipping publication."
