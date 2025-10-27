@@ -9,6 +9,7 @@ import (
 	"github.com/ShinoharaHaruna/GoFi/internal/config"
 	"github.com/ShinoharaHaruna/GoFi/internal/database"
 	"github.com/ShinoharaHaruna/GoFi/internal/models"
+	"github.com/ShinoharaHaruna/GoFi/internal/utility"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
@@ -32,7 +33,7 @@ type CreateShortLinkRequest struct {
 //	@Failure		500	{object}	object{error=string}
 //	@Router			/shorten/{shortcode} [delete]
 func DisableShortLink(c *gin.Context) {
-	if !isTokenValid(c, models.ApiKeyTypeShorten) {
+	if !utility.IsTokenValid(c, models.ApiKeyTypeShorten) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 		return
 	}
@@ -76,7 +77,7 @@ func DisableShortLink(c *gin.Context) {
 //	@Failure		500	{object}	object{error=string}
 //	@Router			/shorten/{shortcode}/enable [post]
 func EnableShortLink(c *gin.Context) {
-	if !isTokenValid(c, models.ApiKeyTypeShorten) {
+	if !utility.IsTokenValid(c, models.ApiKeyTypeShorten) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 		return
 	}
@@ -131,7 +132,7 @@ func CreateShortLink(c *gin.Context) {
 
 	// 1. 验证 Token
 	// 1. Validate Token
-	if !isTokenValid(c, models.ApiKeyTypeShorten) {
+	if !utility.IsTokenValid(c, models.ApiKeyTypeShorten) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 		return
 	}
@@ -166,7 +167,7 @@ func CreateShortLink(c *gin.Context) {
 
 	// 4. 生成唯一的短代码
 	// 4. Generate a unique short code
-	shortCode, err := generateUniqueShortCode(5)
+	shortCode, err := utility.GenerateUniqueShortCode(5)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate short code"})
 		return
@@ -232,7 +233,7 @@ func DownloadFileFromShortLink(c *gin.Context) {
 	// 3. 如果是私有文件，验证 Token
 	// 3. If it's a private file, validate the Token
 	if shortLink.IsPrivate {
-		if !isTokenValid(c, models.ApiKeyTypeDownload) {
+		if !utility.IsTokenValid(c, models.ApiKeyTypeDownload) {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 			return
 		}
@@ -249,7 +250,7 @@ func DownloadFileFromShortLink(c *gin.Context) {
 
 	// 安全检查：确保最终路径仍在 base dir 内
 	// Security check: ensure the final path is still within the base dir
-	if !isPathSafe(filePath, config.GoFiBaseDir) {
+	if !utility.IsPathSafe(filePath, config.GoFiBaseDir) {
 		c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
 		return
 	}

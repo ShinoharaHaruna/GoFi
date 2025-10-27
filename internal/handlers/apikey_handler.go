@@ -7,6 +7,7 @@ import (
 
 	"github.com/ShinoharaHaruna/GoFi/internal/database"
 	"github.com/ShinoharaHaruna/GoFi/internal/models"
+	"github.com/ShinoharaHaruna/GoFi/internal/utility"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
@@ -38,7 +39,7 @@ type ApiKeyResponse struct {
 //	@Failure		500	{object}	object{error=string}
 //	@Router			/api-keys [post]
 func CreateAPIKey(c *gin.Context) {
-	if !isTokenValid(c, models.ApiKeyTypeAPI) {
+	if !utility.IsTokenValid(c, models.ApiKeyTypeAPI) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 		return
 	}
@@ -55,7 +56,7 @@ func CreateAPIKey(c *gin.Context) {
 		return
 	}
 
-	keyValue, err := generateUUIDv4()
+	keyValue, err := utility.GenerateUUIDv4()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate key"})
 		return
@@ -93,7 +94,7 @@ func CreateAPIKey(c *gin.Context) {
 //	@Failure		500	{object}	object{error=string}
 //	@Router			/api-keys/{key} [delete]
 func DisableAPIKey(c *gin.Context) {
-	if !isTokenValid(c, models.ApiKeyTypeAPI) {
+	if !utility.IsTokenValid(c, models.ApiKeyTypeAPI) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 		return
 	}
@@ -131,7 +132,7 @@ func DisableAPIKey(c *gin.Context) {
 //	@Failure		500	{object}	object{error=string}
 //	@Router			/api-keys/{key}/enable [post]
 func EnableAPIKey(c *gin.Context) {
-	if !isTokenValid(c, models.ApiKeyTypeAPI) {
+	if !utility.IsTokenValid(c, models.ApiKeyTypeAPI) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 		return
 	}

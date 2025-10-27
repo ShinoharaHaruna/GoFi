@@ -7,6 +7,7 @@ import (
 
 	"github.com/ShinoharaHaruna/GoFi/internal/config"
 	"github.com/ShinoharaHaruna/GoFi/internal/models"
+	"github.com/ShinoharaHaruna/GoFi/internal/utility"
 	"github.com/gin-gonic/gin"
 )
 
@@ -34,7 +35,7 @@ func UploadFile(c *gin.Context) {
 
 	// 1. 验证 Token
 	// 1. Validate Token
-	if !isTokenValid(c, models.ApiKeyTypeUpload) {
+	if !utility.IsTokenValid(c, models.ApiKeyTypeUpload) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 		return
 	}
@@ -63,7 +64,7 @@ func UploadFile(c *gin.Context) {
 
 	// 再次检查，确保路径不会逃逸出 base dir
 	// Double-check to ensure the path does not escape the base dir
-	if !isPathSafe(destPath, config.GoFiBaseDir) {
+	if !utility.IsPathSafe(destPath, config.GoFiBaseDir) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid filename or path"})
 		return
 	}
@@ -112,7 +113,7 @@ func DownloadFile(c *gin.Context) {
 	if _, err := os.Stat(publicPath); err == nil {
 		// 安全检查：确保路径不会逃逸
 		// Security check: ensure the path does not escape
-		if !isPathSafe(publicPath, config.GoFiBaseDir) {
+		if !utility.IsPathSafe(publicPath, config.GoFiBaseDir) {
 			c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
 			return
 		}
@@ -126,14 +127,14 @@ func DownloadFile(c *gin.Context) {
 	if _, err := os.Stat(privatePath); err == nil {
 		// 验证 Token
 		// Validate Token
-		if !isTokenValid(c, models.ApiKeyTypeDownload) {
+		if !utility.IsTokenValid(c, models.ApiKeyTypeDownload) {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 			return
 		}
 
 		// 安全检查：确保路径不会逃逸
 		// Security check: ensure the path does not escape
-		if !isPathSafe(privatePath, config.GoFiBaseDir) {
+		if !utility.IsPathSafe(privatePath, config.GoFiBaseDir) {
 			c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
 			return
 		}
