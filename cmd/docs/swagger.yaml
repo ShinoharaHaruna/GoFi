@@ -186,6 +186,92 @@ paths:
       summary: Create a short link
       tags:
       - Short Links
+  /shorten/{shortcode}:
+    delete:
+      description: Soft-disable a short link by setting is_enabled to false
+      parameters:
+      - description: Short code of the file
+        in: path
+        name: shortcode
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Disable short link
+      tags:
+      - Short Links
+  /shorten/{shortcode}/enable:
+    post:
+      description: Reactivate a short link by setting is_enabled to true
+      parameters:
+      - description: Short code of the file
+        in: path
+        name: shortcode
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Enable short link
+      tags:
+      - Short Links
   /upload:
     post:
       consumes:

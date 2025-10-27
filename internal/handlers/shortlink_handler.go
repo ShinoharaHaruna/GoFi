@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -9,12 +10,101 @@ import (
 	"github.com/ShinoharaHaruna/GoFi/internal/database"
 	"github.com/ShinoharaHaruna/GoFi/internal/models"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // CreateShortLinkRequest 定义了创建短链接的请求体结构
 // CreateShortLinkRequest defines the request body structure for creating a short link
 type CreateShortLinkRequest struct {
 	Filename string `json:"filename" binding:"required"`
+}
+
+// DisableShortLink godoc
+//
+//	@Summary		Disable short link
+//	@Description	Soft-disable a short link by setting is_enabled to false
+//	@Tags			Short Links
+//	@Param			shortcode	path	string	true	"Short code of the file"
+//	@Security		ApiKeyAuth
+//	@Success		200	{object}	object{message=string}
+//	@Failure		401	{object}	object{error=string}
+//	@Failure		404	{object}	object{error=string}
+//	@Failure		500	{object}	object{error=string}
+//	@Router			/shorten/{shortcode} [delete]
+func DisableShortLink(c *gin.Context) {
+	if !isTokenValid(c, models.ApiKeyTypeShorten) {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	shortcode := c.Param("shortcode")
+
+	var shortLink models.ShortLink
+	result := database.DB.Where("short_code = ?", shortcode).First(&shortLink)
+	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Short link not found"})
+		return
+	}
+	if result.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to query short link"})
+		return
+	}
+
+	if !shortLink.IsEnabled {
+		c.JSON(http.StatusOK, gin.H{"message": "Short link already disabled"})
+		return
+	}
+
+	if err := database.DB.Model(&shortLink).Update("is_enabled", false).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to disable short link"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Short link disabled"})
+}
+
+// EnableShortLink godoc
+//
+//	@Summary		Enable short link
+//	@Description	Reactivate a short link by setting is_enabled to true
+//	@Tags			Short Links
+//	@Param			shortcode	path	string	true	"Short code of the file"
+//	@Security		ApiKeyAuth
+//	@Success		200	{object}	object{message=string}
+//	@Failure		401	{object}	object{error=string}
+//	@Failure		404	{object}	object{error=string}
+//	@Failure		500	{object}	object{error=string}
+//	@Router			/shorten/{shortcode}/enable [post]
+func EnableShortLink(c *gin.Context) {
+	if !isTokenValid(c, models.ApiKeyTypeShorten) {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	shortcode := c.Param("shortcode")
+
+	var shortLink models.ShortLink
+	result := database.DB.Where("short_code = ?", shortcode).First(&shortLink)
+	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Short link not found"})
+		return
+	}
+	if result.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to query short link"})
+		return
+	}
+
+	if shortLink.IsEnabled {
+		c.JSON(http.StatusOK, gin.H{"message": "Short link already enabled"})
+		return
+	}
+
+	if err := database.DB.Model(&shortLink).Update("is_enabled", true).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to enable short link"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Short link enabled"})
 }
 
 // CreateShortLink godoc

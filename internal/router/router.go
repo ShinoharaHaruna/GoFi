@@ -35,6 +35,8 @@ func SetupRouter(cfg *config.Config) *gin.Engine {
 	// Routes without token in path (for Bearer token or query param)
 	r.POST("/upload", handlers.UploadFile)
 	r.POST("/shorten", handlers.CreateShortLink)
+	r.DELETE("/shorten/:shortcode", handlers.DisableShortLink)
+	r.POST("/shorten/:shortcode/enable", handlers.EnableShortLink)
 
 	// 短链接下载端点（这个不需要 token）
 	// Short link download endpoint (this one doesn't need a token itself)
