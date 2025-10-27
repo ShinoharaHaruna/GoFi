@@ -10,6 +10,7 @@ const (
 	ApiKeyTypeUpload   ApiKeyType = "upload"
 	ApiKeyTypeDownload ApiKeyType = "download"
 	ApiKeyTypeShorten  ApiKeyType = "shorten"
+	ApiKeyTypeAPI      ApiKeyType = "api"
 )
 
 // ApiKey 代表访问 API 的令牌

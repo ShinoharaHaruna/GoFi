@@ -1,5 +1,21 @@
 basePath: /
 definitions:
+  handlers.ApiKeyResponse:
+    properties:
+      is_enabled:
+        type: boolean
+      key:
+        type: string
+      type:
+        $ref: '#/definitions/models.ApiKeyType'
+    type: object
+  handlers.CreateAPIKeyRequest:
+    properties:
+      type:
+        type: string
+    required:
+    - type
+    type: object
   handlers.CreateShortLinkRequest:
     properties:
       filename:
@@ -7,6 +23,18 @@ definitions:
     required:
     - filename
     type: object
+  models.ApiKeyType:
+    enum:
+    - upload
+    - download
+    - shorten
+    - api
+    type: string
+    x-enum-varnames:
+    - ApiKeyTypeUpload
+    - ApiKeyTypeDownload
+    - ApiKeyTypeShorten
+    - ApiKeyTypeAPI
 host: localhost:8080
 info:
   contact:
@@ -69,6 +97,151 @@ paths:
       summary: Download a file
       tags:
       - Files
+  /api-keys:
+    post:
+      consumes:
+      - application/json
+      description: Create a new API key. Requires an `api` type key.
+      parameters:
+      - description: API key information
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CreateAPIKeyRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/handlers.ApiKeyResponse'
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Create API key
+      tags:
+      - API Keys
+  /api-keys/{key}:
+    delete:
+      description: Soft-disable an API key by setting its is_enabled flag to false.
+      parameters:
+      - description: API key value
+        in: path
+        name: key
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Disable API key
+      tags:
+      - API Keys
+  /api-keys/{key}/enable:
+    post:
+      description: Enable an API key by setting its is_enabled flag to true.
+      parameters:
+      - description: API key value
+        in: path
+        name: key
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Enable API key
+      tags:
+      - API Keys
   /health:
     get:
       consumes:

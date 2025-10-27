@@ -37,6 +37,9 @@ func SetupRouter(cfg *config.Config) *gin.Engine {
 	r.POST("/shorten", handlers.CreateShortLink)
 	r.DELETE("/shorten/:shortcode", handlers.DisableShortLink)
 	r.POST("/shorten/:shortcode/enable", handlers.EnableShortLink)
+	r.POST("/api-keys", handlers.CreateAPIKey)
+	r.DELETE("/api-keys/:key", handlers.DisableAPIKey)
+	r.POST("/api-keys/:key/enable", handlers.EnableAPIKey)
 
 	// 短链接下载端点（这个不需要 token）
 	// Short link download endpoint (this one doesn't need a token itself)
