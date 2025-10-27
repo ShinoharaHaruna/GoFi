@@ -26,7 +26,7 @@ const docTemplate = `{
     "paths": {
         "/health": {
             "get": {
-                "description": "获取服务状态\nShow the status of server.",
+                "description": "Show the status of server.",
                 "consumes": [
                     "*/*"
                 ],
@@ -34,9 +34,9 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "health"
+                    "Health"
                 ],
-                "summary": "健康检查",
+                "summary": "Health Check",
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -270,6 +270,42 @@ const docTemplate = `{
                             "type": "object",
                             "properties": {
                                 "error": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "error": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/uuid": {
+            "get": {
+                "description": "Return a random UUIDv4",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Utility"
+                ],
+                "summary": "Generate a random UUIDv4",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "uuid": {
                                     "type": "string"
                                 }
                             }

@@ -29,6 +29,7 @@ func SetupRouter(cfg *config.Config) *gin.Engine {
 	// 不带 token 的路由（用于 Bearer token 或查询参数）
 	// Routes without token in path (for Bearer token or query param)
 	r.GET("/health", handlers.HealthCheck)
+	r.GET("/uuid", handlers.GenerateUUID)
 
 	// 不带 token 的路由（用于 Bearer token 或查询参数）
 	// Routes without token in path (for Bearer token or query param)

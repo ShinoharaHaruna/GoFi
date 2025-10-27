@@ -73,9 +73,7 @@ paths:
     get:
       consumes:
       - '*/*'
-      description: |-
-        获取服务状态
-        Show the status of server.
+      description: Show the status of server.
       produces:
       - application/json
       responses:
@@ -84,9 +82,9 @@ paths:
           schema:
             additionalProperties: true
             type: object
-      summary: 健康检查
+      summary: Health Check
       tags:
-      - health
+      - Health
   /s/{shortcode}:
     get:
       description: Downloads a file using a short code. If the original file is private,
@@ -243,6 +241,29 @@ paths:
       summary: Upload a file
       tags:
       - Files
+  /uuid:
+    get:
+      description: Return a random UUIDv4
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              uuid:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      summary: Generate a random UUIDv4
+      tags:
+      - Utility
 securityDefinitions:
   ApiKeyAuth:
     in: header

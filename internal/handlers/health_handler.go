@@ -8,10 +8,9 @@ import (
 
 // HealthCheck godoc
 //
-//	@Summary		健康检查
-//	@Description	获取服务状态
+//	@Summary		Health Check
 //	@Description	Show the status of server.
-//	@Tags			health
+//	@Tags			Health
 //	@Accept			*/*
 //	@Produce		json
 //	@Success		200	{object}	map[string]interface{}
