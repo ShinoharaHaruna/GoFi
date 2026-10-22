@@ -1,0 +1,7 @@
+# Opt in only for the existing production installation, never for fresh installs.
+name: gofi
+
+volumes:
+  gofi_db_data:
+    external: true
+    name: gofi_gofi_db_data

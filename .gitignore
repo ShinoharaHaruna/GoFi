@@ -27,11 +27,16 @@ go.work.sum
 # 本地环境变量文件
 # Local environment variables file
 .env
+.env.*
 config.toml
+/deploy/config.toml
 
 # Editor/IDE
 # .idea/
 # .vscode/
+
+# Local agent state
+.pi/
 
 data/
 build/

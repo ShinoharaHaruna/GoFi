@@ -1,0 +1,36 @@
+# Only the current Go packages and module/version metadata are build inputs.
+# New packages must be added here and to the explicit Dockerfile COPY list.
+**
+!go.mod
+!go.sum
+!VERSION
+!cmd
+!cmd/gofi
+!cmd/gofi/*.go
+!cmd/docs
+!cmd/docs/docs.go
+!internal
+!internal/config
+!internal/database
+!internal/handlers
+!internal/models
+!internal/router
+!internal/utility
+!internal/*/*.go
+**/*_test.go
+
+# Never send local state or secrets, even if the allowlist is expanded later.
+.git
+.pi
+.env
+.env.*
+**/.env
+**/.env.*
+**/*.toml
+**/*.toml.*
+**/*.pem
+**/*.key
+**/credentials*
+data
+build
+dist

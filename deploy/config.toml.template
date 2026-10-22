@@ -1,0 +1,8 @@
+# Copy to deploy/config.toml; never commit the real file or bake it into an image.
+GIN_MODE = "release"
+GOFI_PORT = "8080"
+GOFI_BASE_DIR = "/app/data"
+
+# Match the existing db credentials; localhost would address the app container.
+# These are the unchanged Compose development defaults, not production secrets.
+DATABASE_URL = "postgres://gofi_user:gofi_local_dev@db:5432/gofi_db?sslmode=disable"

@@ -1,4 +1,38 @@
 services:
+  app:
+    image: ${GOFI_IMAGE:-gofi:local}
+    build:
+      context: .
+      args:
+        VCS_REF: ${GOFI_VCS_REF:-unknown}
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${GOFI_APP_PUBLISH:-8080}:8080"
+    volumes:
+      - type: bind
+        source: ${GOFI_CONFIG_FILE:-./deploy/config.toml}
+        target: /app/config.toml
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${GOFI_DATA_DIR:-./data}
+        target: /app/data
+        bind:
+          create_host_path: false
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   db:
     image: postgres:17-bookworm
     restart: always
@@ -7,7 +41,7 @@ services:
       POSTGRES_USER: gofi_user
       POSTGRES_PASSWORD: gofi_local_dev
     ports:
-      - "127.0.0.1:54320:5432"
+      - "${GOFI_DB_PUBLISH:-127.0.0.1:54320}:5432"
     volumes:
       - gofi_db_data:/var/lib/postgresql/data
     healthcheck:
