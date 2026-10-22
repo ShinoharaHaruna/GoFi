@@ -178,7 +178,7 @@ func CreateShortLink(c *gin.Context) {
 	shortLink := models.ShortLink{
 		ShortCode:        shortCode,
 		OriginalFilename: cleanFilename,
-		IsPrivate:        isPrivate,
+		IsPrivate:        &isPrivate,
 		IsEnabled:        true, // 默认启用 / Enabled by default
 	}
 
@@ -232,7 +232,8 @@ func DownloadFileFromShortLink(c *gin.Context) {
 
 	// 3. 如果是私有文件，验证 Token
 	// 3. If it's a private file, validate the Token
-	if shortLink.IsPrivate {
+	isPrivate := shortLink.RequiresDownloadToken()
+	if isPrivate {
 		if !utility.IsTokenValid(c, models.ApiKeyTypeDownload) {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 			return
@@ -242,7 +243,7 @@ func DownloadFileFromShortLink(c *gin.Context) {
 	// 4. 构建文件路径并提供下载
 	// 4. Build the file path and serve the download
 	var filePath string
-	if shortLink.IsPrivate {
+	if isPrivate {
 		filePath = filepath.Join(config.GoFiBaseDir, "private", shortLink.OriginalFilename)
 	} else {
 		filePath = filepath.Join(config.GoFiBaseDir, "public", shortLink.OriginalFilename)
