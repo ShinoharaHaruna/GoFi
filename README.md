@@ -121,12 +121,18 @@ Swagger UI: <http://localhost:8080/swagger/index.html>.
 | Endpoint | Access |
 | --- | --- |
 | `GET /health` | Unauthenticated HTTP liveness only |
+| `GET /uuid` | Unauthenticated random UUIDv4 |
 | `POST /upload` | `upload` token; `X-GoFi-Target-Dir: public` opts into public storage, otherwise private |
+| `GET /files` | `list` token; JSON listing of both buckets, `?dir=public\|private` filters to one |
 | `GET /:filename` | Public: anonymous; private: `download` token |
+| `DELETE /:filename` | `delete` token; `?dir=public\|private` required when the name exists in both buckets |
 | `POST /shorten` | `shorten` token; JSON `{"filename":"example.txt"}` |
 | `GET /s/:shortcode` | Public: anonymous; private: `download` token |
 | `DELETE /shorten/:shortcode` | `shorten` token; disables the link |
 | `POST /shorten/:shortcode/enable` | `shorten` token; re-enables the link |
+| `POST /api-keys` | `api` token; JSON `{"type":"<type>"}` |
+| `DELETE /api-keys/:key` | `api` token; disables the key |
+| `POST /api-keys/:key/enable` | `api` token; re-enables the key |
 
 After the first app startup initializes tables, open a database session and replace the placeholders with distinct strong keys (do not paste real keys into documentation or shell history):
 
@@ -139,7 +145,10 @@ INSERT INTO api_keys (key, type, is_enabled)
 VALUES
   ('<your-upload-key>', 'upload', true),
   ('<your-download-key>', 'download', true),
-  ('<your-shorten-key>', 'shorten', true);
+  ('<your-shorten-key>', 'shorten', true),
+  ('<your-list-key>', 'list', true),
+  ('<your-delete-key>', 'delete', true),
+  ('<your-api-key>', 'api', true);
 ```
 
 Use `Authorization: Bearer <key>`; private downloads also accept `?token=<key>`, but query strings can leak into access logs. Existing production API keys and links remain in the existing database; do not reseed or replace them during migration.
@@ -249,7 +258,7 @@ Verify the dump (`pg_restore --list`), archive inventory, and recovery procedure
 
    `name: gofi` plus `-p gofi` preserves the network/project. The logical key stays `gofi_db_data`; the overlay declares physical `gofi_gofi_db_data` external, so a missing volume fails instead of silently creating an empty database. Do not create it merely to satisfy this check.
 
-3. Begin a maintenance/stop-write window. Let active uploads complete and stop clients/writers. Attach to the existing screen (`screen -r 2817.gofi`, or its verified current session), stop the old `build/GoFi` with Ctrl-C, and confirm that process and the `:8080` listener are gone. The app has no request-level graceful shutdown; stopping it can interrupt in-flight requests. Keep PostgreSQL running, then fail fast before any backup or permission change:
+3. Begin a maintenance/stop-write window. Let active uploads complete and stop clients/writers. Attach to the existing screen (`screen -r 2817.gofi`, or its verified current session), stop the old `build/GoFi` with Ctrl-C, and confirm that process and the `:8080` listener are gone. The old screen-run binary has no request-level graceful shutdown; stopping it can interrupt in-flight requests. Keep PostgreSQL running, then fail fast before any backup or permission change:
 
    ```sh
    deploy/verify-production.sh --stopped
@@ -304,7 +313,9 @@ Verify the dump (`pg_restore --list`), archive inventory, and recovery procedure
 - Compose waits for the database's `pg_isready` before initially starting `app`. This does not guarantee ongoing database availability or validate app credentials/schema.
 - `/health` returns only `{"status":"UP"}`. The image healthcheck is HTTP **liveness**, not full business readiness: it does not query the database or check storage permissions/capacity.
 - Docker marking a container **unhealthy does not restart it**. `restart: unless-stopped` restarts an exited app process (and allows startup after daemon/host restart unless explicitly stopped), not an unhealthy but running one. Monitoring/operator action is still needed.
-- The app has no `http.Server.Shutdown` or request-level graceful draining. An exec-form entrypoint delivers container signals directly, but containerization does not add graceful request completion.
+- `SIGINT`/`SIGTERM` drain in-flight requests for up to 30 s before the process exits; requests still running after that are cut.
+- `SIGHUP` performs a zero-downtime restart: a child process inherits the listener and takes over while the parent drains. This targets host-run binaries (screen/systemd); inside Docker the parent's exit ends the container, so container deployments upgrade by replacing the container instead.
+- `GET /files` occupies that path, so a stored file literally named `files` (likewise `health`, `uuid`, `s`, `swagger`) cannot be fetched via `GET /:filename`; mint a short link for it instead.
 - Historical rows created by the previous public-short-link defect may still have `is_private=true` even though the file lives under `public/`. Anonymous access returns 401, while a valid `download` token then reaches the private-path lookup and returns 404. New links now persist the correct value; no existing records are rewritten automatically. Repair an affected row only after reviewing it, for example by setting `is_private=false` for one verified short code.
 
 ## Local verification

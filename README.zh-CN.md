@@ -118,12 +118,18 @@ Swagger UI：<http://localhost:8080/swagger/index.html>。
 | 接口 | 访问规则 |
 | --- | --- |
 | `GET /health` | 无需鉴权，仅检查 HTTP liveness |
+| `GET /uuid` | 无需鉴权，返回随机 UUIDv4 |
 | `POST /upload` | 需要 `upload` token；`X-GoFi-Target-Dir: public` 选择公开目录，否则为私有 |
+| `GET /files` | 需要 `list` token；返回两个桶的 JSON 列举，`?dir=public\|private` 限定单个桶 |
 | `GET /:filename` | 公开文件匿名访问；私有文件需要 `download` token |
+| `DELETE /:filename` | 需要 `delete` token；同名文件同时存在于两个桶时必须带 `?dir=public\|private` |
 | `POST /shorten` | 需要 `shorten` token；JSON 为 `{"filename":"example.txt"}` |
 | `GET /s/:shortcode` | 公开短链匿名访问；私有短链需要 `download` token |
 | `DELETE /shorten/:shortcode` | 需要 `shorten` token；停用短链 |
 | `POST /shorten/:shortcode/enable` | 需要 `shorten` token；重新启用短链 |
+| `POST /api-keys` | 需要 `api` token；JSON 为 `{"type":"<type>"}` |
+| `DELETE /api-keys/:key` | 需要 `api` token；停用该 key |
+| `POST /api-keys/:key/enable` | 需要 `api` token；重新启用该 key |
 
 首次启动应用并初始化表后，打开数据库会话，将占位符替换为不同的强随机密钥（不要把真实 key 粘贴进文档或 shell history）：
 
@@ -136,7 +142,10 @@ INSERT INTO api_keys (key, type, is_enabled)
 VALUES
   ('<your-upload-key>', 'upload', true),
   ('<your-download-key>', 'download', true),
-  ('<your-shorten-key>', 'shorten', true);
+  ('<your-shorten-key>', 'shorten', true),
+  ('<your-list-key>', 'list', true),
+  ('<your-delete-key>', 'delete', true),
+  ('<your-api-key>', 'api', true);
 ```
 
 通过 `Authorization: Bearer <key>` 发送 token。私有下载也接受 `?token=<key>`，但查询字符串可能泄漏至访问日志。生产已有的 key 和短链保存在既有数据库中；迁移时不重新初始化或替换它们。
@@ -246,7 +255,7 @@ project_root="$(pwd -P)" &&
 
    `name: gofi` 配合 `-p gofi` 保留原有网络/project；逻辑卷键仍为 `gofi_db_data`。Override 将物理卷 `gofi_gofi_db_data` 声明为 external，卷缺失时应报错，而不是静默建空库。不要为了通过检查而新建同名卷。
 
-3. 开始维护/停写窗口，让在途上传完成并停止客户端/其他写入方。连接旧 screen（`screen -r 2817.gofi`，或核实后的当前会话），用 Ctrl-C 停止旧 `build/GoFi`，确认进程和 `:8080` listener 都已消失。当前应用没有请求级 graceful shutdown，停止时可能中断在途请求。保持 PostgreSQL 运行，然后在任何备份或权限修改前 fail-fast 核验：
+3. 开始维护/停写窗口，让在途上传完成并停止客户端/其他写入方。连接旧 screen（`screen -r 2817.gofi`，或核实后的当前会话），用 Ctrl-C 停止旧 `build/GoFi`，确认进程和 `:8080` listener 都已消失。旧的 screen 直跑二进制没有请求级 graceful shutdown，停止时可能中断在途请求。保持 PostgreSQL 运行，然后在任何备份或权限修改前 fail-fast 核验：
 
    ```sh
    deploy/verify-production.sh --stopped
@@ -301,7 +310,9 @@ project_root="$(pwd -P)" &&
 - Compose 首次启动应用前等待数据库 `pg_isready` 通过；它不保证数据库持续可用，也不验证应用凭据/schema。
 - `/health` 仅返回 `{"status":"UP"}`。镜像健康检查属于 HTTP **liveness（存活探测）**，不是完整业务 readiness（就绪探测）：不会查询数据库，也不会检查存储权限或容量。
 - Docker 将容器标记为 **unhealthy 不会自动重启它**。`restart: unless-stopped` 针对进程退出，并在未被显式停止时允许 daemon/主机重启后拉起容器；它不会重启仍在运行但 unhealthy 的应用，仍需监控和人工处理。
-- 当前没有 `http.Server.Shutdown` 或请求级 graceful draining。Exec-form entrypoint 能直接传递容器信号，但容器化不会自动保证在途请求完成。
+- `SIGINT`/`SIGTERM` 会排空在途请求，上限 30 秒后进程退出；到时未完成的请求会被切断。
+- `SIGHUP` 触发零停机热重启：子进程继承 listener 接管服务，父进程排空后退出。该机制面向宿主机直跑（screen/systemd）；Docker 内父进程退出即容器结束，因此容器部署请直接替换容器升级。
+- `GET /files` 占用该路径：名为 `files`（以及 `health`、`uuid`、`s`、`swagger`）的文件无法通过 `GET /:filename` 下载，可为其创建短链访问。
 - 旧版本公开短链缺陷留下的历史记录可能仍为 `is_private=true`，而文件实际位于 `public/`。匿名访问返回 401；携带有效 `download` token 后会改查 `private/` 路径并返回 404。新建短链现在会持久化正确值；系统不会自动批量改写旧记录。修复受影响记录前应先人工核实，可仅将已确认的短码设置为 `is_private=false`。
 
 ## 本地验证
