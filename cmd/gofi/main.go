@@ -8,6 +8,7 @@ import (
 	"github.com/ShinoharaHaruna/GoFi/internal/config"
 	"github.com/ShinoharaHaruna/GoFi/internal/database"
 	"github.com/ShinoharaHaruna/GoFi/internal/router"
+	"github.com/ShinoharaHaruna/GoFi/internal/server"
 	"github.com/gin-gonic/gin"
 )
 
@@ -61,12 +62,12 @@ func main() {
 	// Create router
 	r := router.SetupRouter(cfg)
 
-	// 启动服务器
-	// Start server
+	// 启动服务器：SIGINT/SIGTERM 优雅停机，SIGHUP 零停机热重启
+	// Start server: graceful shutdown on SIGINT/SIGTERM, zero-downtime re-exec on SIGHUP
 	listenAddr := fmt.Sprintf(":%s", cfg.GoFiPort)
 	log.Printf("Server starting on %s", listenAddr)
-	if err := r.Run(listenAddr); err != nil {
-		log.Fatalf("Failed to start server: %v", err)
+	if err := server.Run(listenAddr, r); err != nil {
+		log.Fatalf("Server stopped with error: %v", err)
 	}
 }
 
