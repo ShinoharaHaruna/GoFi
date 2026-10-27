@@ -15,6 +15,7 @@
 !internal/handlers
 !internal/models
 !internal/router
+!internal/server
 !internal/utility
 !internal/*/*.go
 **/*_test.go

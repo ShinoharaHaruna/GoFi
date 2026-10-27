@@ -16,6 +16,7 @@ COPY internal/database/*.go ./internal/database/
 COPY internal/handlers/*.go ./internal/handlers/
 COPY internal/models/*.go ./internal/models/
 COPY internal/router/*.go ./internal/router/
+COPY internal/server/*.go ./internal/server/
 COPY internal/utility/*.go ./internal/utility/
 
 ARG VCS_REF=unknown
