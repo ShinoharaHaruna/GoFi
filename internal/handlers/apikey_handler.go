@@ -186,7 +186,9 @@ func parseAPIKeyType(input string) (models.ApiKeyType, bool) {
 	case models.ApiKeyTypeUpload,
 		models.ApiKeyTypeDownload,
 		models.ApiKeyTypeShorten,
-		models.ApiKeyTypeAPI:
+		models.ApiKeyTypeAPI,
+		models.ApiKeyTypeList,
+		models.ApiKeyTypeDelete:
 		return models.ApiKeyType(trimmed), true
 	default:
 		return "", false

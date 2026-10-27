@@ -85,7 +85,7 @@ class Checker:
             key: value for key, value in os.environ.items()
             if not key.startswith(("GOFI_", "COMPOSE_"))
         }
-        self.keys = {kind: secrets.token_hex(32) for kind in ("upload", "download", "shorten")}
+        self.keys = {kind: secrets.token_hex(32) for kind in ("upload", "download", "shorten", "list", "delete")}
         self.wrong_key = secrets.token_hex(32)
         self.redactions = list(self.keys.values()) + [self.wrong_key, "gofi_local_dev"]
         self.temporary = None
@@ -357,13 +357,14 @@ class Checker:
         self.psql('BEGIN;\nINSERT INTO api_keys (created_at, updated_at, "key", type, is_enabled) VALUES\n'
                   + ",\n".join(rows) + ";\nCOMMIT;\n")
         self.check_keys()
-        passed("randomized upload/download/shorten keys seeded only in the disposable database")
+        passed("randomized upload/download/shorten/list/delete keys seeded only in the disposable database")
 
     def check_keys(self):
         conditions = ["(\"key\" = '{}' AND type = '{}')".format(key, kind) for kind, key in self.keys.items()]
         found = self.psql("SELECT type FROM api_keys WHERE deleted_at IS NULL AND is_enabled = TRUE AND ("
                           + " OR ".join(conditions) + ") ORDER BY type;\n")
-        require(found.splitlines() == ["download", "shorten", "upload"], "Seeded API keys did not persist unchanged")
+        require(found.splitlines() == ["delete", "download", "list", "shorten", "upload"],
+                "Seeded API keys did not persist unchanged")
 
     def request(self, method, path, expected, label, *, key=None, body=None, content_type=None, headers=None):
         require(path.startswith("/") and not path.startswith("//"), "Unsafe response path")
@@ -501,6 +502,63 @@ class Checker:
             if private in self.shorts:
                 self.check(label + " shorten-only disable/re-enable", lambda private=private, data=data:
                            self.toggle_short(self.shorts[private], data, private=private))
+        self.check("list key returns a JSON file listing with dir filter", self.list_case)
+        self.check("delete key removes files and disables their short links", self.delete_case)
+
+    def list_case(self):
+        for key in (None, self.wrong_key, self.keys["upload"], self.keys["download"],
+                    self.keys["shorten"], self.keys["delete"]):
+            self.json_request("GET", "/files", 401, "list rejects missing/wrong/type token", key=key)
+        result = self.json_request("GET", "/files", 200, "authorized list", key=self.keys["list"])
+        files = result.get("files")
+        require(isinstance(files, list), "List response lacks a files array")
+        found = {(entry.get("name"), entry.get("dir")) for entry in files if isinstance(entry, dict)}
+        expected = {(name, "private" if private else "public") for private, (name, _) in self.files.items()}
+        require(expected <= found, "List response is missing uploaded files")
+        for entry in files:
+            require(isinstance(entry.get("size"), int) and isinstance(entry.get("mod_time"), str),
+                    "File entry lacks size or mod_time")
+        filtered = self.json_request("GET", "/files?dir=public", 200, "public-only list", key=self.keys["list"])
+        require(all(entry.get("dir") == "public" for entry in filtered["files"]),
+                "?dir=public returned non-public entries")
+        self.json_request("GET", "/files?dir=bogus", 400, "invalid dir rejected", key=self.keys["list"])
+
+    def delete_case(self):
+        missing = "missing-" + uuid.uuid4().hex + ".bin"
+        for key in (None, self.wrong_key, self.keys["upload"], self.keys["download"],
+                    self.keys["shorten"], self.keys["list"]):
+            self.json_request("DELETE", "/" + missing, 401, "delete rejects missing/wrong/type token", key=key)
+        self.json_request("DELETE", "/" + missing, 404, "delete reports a missing file", key=self.keys["delete"])
+
+        # The same name in both buckets is ambiguous without an explicit ?dir=.
+        name = "ambiguous-" + uuid.uuid4().hex + ".bin"
+        data = secrets.token_bytes(64)
+        self.upload(name, data, key=self.keys["upload"], public=True)
+        self.upload(name, data, key=self.keys["upload"], public=False)
+        self.json_request("DELETE", "/" + name, 409, "ambiguous delete rejected", key=self.keys["delete"])
+        result = self.json_request("DELETE", "/" + name + "?dir=public", 200, "delete public copy",
+                                   key=self.keys["delete"])
+        require(result.get("dir") == "public" and result.get("filename") == name,
+                "Delete reported the wrong bucket or filename")
+        self.json_request("GET", "/" + name, 401, "only the private copy remains")
+        result = self.json_request("DELETE", "/" + name, 200, "unambiguous delete omits dir",
+                                   key=self.keys["delete"])
+        require(result.get("dir") == "private", "Delete reported the wrong bucket")
+        self.json_request("GET", "/" + name, 404, "deleted file is gone")
+        self.json_request("DELETE", "/" + name, 404, "re-delete reports a missing file", key=self.keys["delete"])
+
+        # Deleting a file soft-disables the enabled short links that pointed at it.
+        for private in (False, True):
+            fname = ("delete-private-" if private else "delete-public-") + uuid.uuid4().hex + ".bin"
+            self.upload(fname, data, key=self.keys["upload"], public=not private)
+            path = self.shorten(fname, self.keys["shorten"])
+            bucket = "private" if private else "public"
+            result = self.json_request("DELETE", "/" + fname + "?dir=" + bucket, 200,
+                                       "delete file", key=self.keys["delete"])
+            require(result.get("disabled_short_links") == 1,
+                    "Expected exactly one disabled short link")
+            self.json_request("GET", path, 404, "short link disabled after file deletion",
+                              key=self.keys["download"])
 
     def recreate_app(self, original_app_id, original_db_id):
         self.compose("up", "-d", "--no-deps", "--no-build", "--pull", "never", "--force-recreate",

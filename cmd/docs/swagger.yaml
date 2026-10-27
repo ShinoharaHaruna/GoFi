@@ -23,18 +23,33 @@ definitions:
     required:
     - filename
     type: object
+  handlers.FileEntry:
+    properties:
+      dir:
+        type: string
+      mod_time:
+        type: string
+      name:
+        type: string
+      size:
+        type: integer
+    type: object
   models.ApiKeyType:
     enum:
     - upload
     - download
     - shorten
     - api
+    - list
+    - delete
     type: string
     x-enum-varnames:
     - ApiKeyTypeUpload
     - ApiKeyTypeDownload
     - ApiKeyTypeShorten
     - ApiKeyTypeAPI
+    - ApiKeyTypeList
+    - ApiKeyTypeDelete
 host: localhost:8080
 info:
   contact:
@@ -50,6 +65,80 @@ info:
   version: "1.0"
 paths:
   /{filename}:
+    delete:
+      description: Deletes a file. Requires a 'delete' type token. When the same name
+        exists in both buckets, ?dir=public or ?dir=private is required, otherwise
+        the request is rejected as ambiguous. Enabled short links pointing at the
+        deleted file are disabled.
+      parameters:
+      - description: Filename
+        in: path
+        name: filename
+        required: true
+        type: string
+      - description: 'Bucket to delete from: ''public'' or ''private'''
+        enum:
+        - public
+        - private
+        in: query
+        name: dir
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              dir:
+                type: string
+              disabled_short_links:
+                type: integer
+              filename:
+                type: string
+              message:
+                type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Delete a file
+      tags:
+      - Files
     get:
       description: Downloads a file. Public files are accessible directly. For private
         files, a 'download' type token is required via query parameter or Authorization
@@ -242,6 +331,57 @@ paths:
       summary: Enable API key
       tags:
       - API Keys
+  /files:
+    get:
+      description: Lists files in the public and/or private directory as JSON. Requires
+        a 'list' type token. Use ?dir=public or ?dir=private to restrict the listing
+        to one bucket.
+      parameters:
+      - description: 'Bucket to list: ''public'' or ''private'' (default: both)'
+        enum:
+        - public
+        - private
+        in: query
+        name: dir
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              files:
+                items:
+                  $ref: '#/definitions/handlers.FileEntry'
+                type: array
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: List files
+      tags:
+      - Files
   /health:
     get:
       consumes:

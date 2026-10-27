@@ -4,8 +4,11 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
+	"time"
 
 	"github.com/ShinoharaHaruna/GoFi/internal/config"
+	"github.com/ShinoharaHaruna/GoFi/internal/database"
 	"github.com/ShinoharaHaruna/GoFi/internal/models"
 	"github.com/ShinoharaHaruna/GoFi/internal/utility"
 	"github.com/gin-gonic/gin"
@@ -145,4 +148,195 @@ func DownloadFile(c *gin.Context) {
 	// 3. 如果文件在两个目录都不存在
 	// 3. If the file does not exist in either directory
 	c.JSON(http.StatusNotFound, gin.H{"error": "File not found"})
+}
+
+// FileEntry 描述目录中的一个文件 / FileEntry describes one file in a bucket
+type FileEntry struct {
+	Name    string    `json:"name"`
+	Dir     string    `json:"dir"`
+	Size    int64     `json:"size"`
+	ModTime time.Time `json:"mod_time"`
+}
+
+// ListFiles godoc
+//
+//	@Summary		List files
+//	@Description	Lists files in the public and/or private directory as JSON. Requires a 'list' type token. Use ?dir=public or ?dir=private to restrict the listing to one bucket.
+//	@Tags			Files
+//	@Produce		json
+//	@Param		dir		query	string	false	"Bucket to list: 'public' or 'private' (default: both)"	Enums(public, private)
+//	@Security		ApiKeyAuth
+//	@Success		200	{object}	object{files=[]FileEntry}
+//	@Failure		400	{object}	object{error=string}
+//	@Failure		401	{object}	object{error=string}
+//	@Failure		500	{object}	object{error=string}
+//	@Router			/files [get]
+//
+// ListFiles 返回文件列表 / ListFiles returns a JSON listing of stored files
+func ListFiles(c *gin.Context) {
+	cfg, _ := c.Get("config")
+	config := cfg.(*config.Config)
+
+	if !utility.IsTokenValid(c, models.ApiKeyTypeList) {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	dirs, ok := parseDirParam(c)
+	if !ok {
+		return
+	}
+
+	files := []FileEntry{}
+	for _, dir := range dirs {
+		entries, err := listBucket(filepath.Join(config.GoFiBaseDir, dir), dir)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list files: " + err.Error()})
+			return
+		}
+		files = append(files, entries...)
+	}
+
+	sort.Slice(files, func(i, j int) bool {
+		if files[i].Name != files[j].Name {
+			return files[i].Name < files[j].Name
+		}
+		return files[i].Dir < files[j].Dir
+	})
+
+	c.JSON(http.StatusOK, gin.H{"files": files})
+}
+
+// DeleteFile godoc
+//
+//	@Summary		Delete a file
+//	@Description	Deletes a file. Requires a 'delete' type token. When the same name exists in both buckets, ?dir=public or ?dir=private is required, otherwise the request is rejected as ambiguous. Enabled short links pointing at the deleted file are disabled.
+//	@Tags			Files
+//	@Produce		json
+//	@Param		filename	path	string	true	"Filename"
+//	@Param		dir			query	string	false	"Bucket to delete from: 'public' or 'private'"	Enums(public, private)
+//	@Security		ApiKeyAuth
+//	@Success		200	{object}	object{message=string,filename=string,dir=string,disabled_short_links=int}
+//	@Failure		400	{object}	object{error=string}
+//	@Failure		401	{object}	object{error=string}
+//	@Failure		404	{object}	object{error=string}
+//	@Failure		409	{object}	object{error=string}
+//	@Failure		500	{object}	object{error=string}
+//	@Router			/{filename} [delete]
+//
+// DeleteFile 删除一个文件 / DeleteFile deletes a stored file
+func DeleteFile(c *gin.Context) {
+	cfg, _ := c.Get("config")
+	config := cfg.(*config.Config)
+
+	if !utility.IsTokenValid(c, models.ApiKeyTypeDelete) {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	filename := filepath.Base(c.Param("filename"))
+
+	dirs, ok := parseDirParam(c)
+	if !ok {
+		return
+	}
+
+	// 定位目标：显式 dir 只看一个桶，否则两个桶都检查
+	// Locate target: explicit dir checks one bucket, otherwise check both
+	candidates := []string{}
+	for _, dir := range dirs {
+		path := filepath.Join(config.GoFiBaseDir, dir, filename)
+		if !utility.IsPathSafe(path, config.GoFiBaseDir) {
+			continue
+		}
+		if info, err := os.Stat(path); err == nil && info.Mode().IsRegular() {
+			candidates = append(candidates, dir)
+		}
+	}
+
+	switch len(candidates) {
+	case 0:
+		c.JSON(http.StatusNotFound, gin.H{"error": "File not found"})
+		return
+	case 1:
+		// 唯一命中，继续删除 / Exactly one hit, proceed
+	default:
+		// 同名文件同时存在于 public/ 和 private/，拒绝二义删除
+		// Same name exists in both buckets; refuse the ambiguous delete
+		c.JSON(http.StatusConflict, gin.H{"error": "File exists in both public and private; retry with ?dir=public or ?dir=private"})
+		return
+	}
+
+	dir := candidates[0]
+	targetPath := filepath.Join(config.GoFiBaseDir, dir, filename)
+	if err := os.Remove(targetPath); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete file: " + err.Error()})
+		return
+	}
+
+	// 软禁用指向该文件的短链接，避免同名新文件让旧链接“复活”
+	// Soft-disable short links to this file so a same-name upload cannot resurrect them
+	isPrivate := dir == "private"
+	result := database.DB.Model(&models.ShortLink{}).
+		Where("original_filename = ? AND is_private = ? AND is_enabled = ?", filename, isPrivate, true).
+		Update("is_enabled", false)
+	disabled := result.RowsAffected
+	if result.Error != nil {
+		// 文件已删；链接清理失败如实上报，不假装全部成功
+		// File is gone; report the cleanup failure honestly instead of faking success
+		c.JSON(http.StatusOK, gin.H{
+			"message":              "File deleted, but failed to disable its short links",
+			"filename":             filename,
+			"dir":                  dir,
+			"disabled_short_links": 0,
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":              "File deleted",
+		"filename":             filename,
+		"dir":                  dir,
+		"disabled_short_links": disabled,
+	})
+}
+
+// parseDirParam 解析 ?dir= 查询参数 / parseDirParam parses the ?dir= query parameter
+// 返回要操作的桶列表；参数非法时写出 400 并返回 ok=false
+// Returns the buckets to operate on; writes 400 and returns ok=false on a bad value
+func parseDirParam(c *gin.Context) (dirs []string, ok bool) {
+	switch c.Query("dir") {
+	case "":
+		return []string{"public", "private"}, true
+	case "public":
+		return []string{"public"}, true
+	case "private":
+		return []string{"private"}, true
+	default:
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid dir parameter: must be 'public' or 'private'"})
+		return nil, false
+	}
+}
+
+// listBucket 读取一个桶内的普通文件 / listBucket reads regular files in one bucket
+func listBucket(path, dir string) ([]FileEntry, error) {
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		return nil, err
+	}
+
+	files := []FileEntry{}
+	for _, entry := range entries {
+		info, err := entry.Info()
+		if err != nil || !info.Mode().IsRegular() {
+			continue
+		}
+		files = append(files, FileEntry{
+			Name:    info.Name(),
+			Dir:     dir,
+			Size:    info.Size(),
+			ModTime: info.ModTime(),
+		})
+	}
+	return files, nil
 }

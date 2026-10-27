@@ -41,6 +41,9 @@ func SetupRouter(cfg *config.Config) *gin.Engine {
 	r.DELETE("/api-keys/:key", handlers.DisableAPIKey)
 	r.POST("/api-keys/:key/enable", handlers.EnableAPIKey)
 
+	// 文件列举（'list' 类型 key）/ File listing ('list' key type)
+	r.GET("/files", handlers.ListFiles)
+
 	// 短链接下载端点（这个不需要 token）
 	// Short link download endpoint (this one doesn't need a token itself)
 	r.GET("/s/:shortcode", handlers.DownloadFileFromShortLink)
@@ -51,6 +54,9 @@ func SetupRouter(cfg *config.Config) *gin.Engine {
 		c.Redirect(http.StatusMovedPermanently, "/swagger/index.html")
 	})
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+
+	// 文件删除（'delete' 类型 key）/ File deletion ('delete' key type)
+	r.DELETE("/:filename", handlers.DeleteFile)
 
 	// 文件下载路由必须放在最后，以避免路径冲突
 	// The file download route must be last to avoid path conflicts

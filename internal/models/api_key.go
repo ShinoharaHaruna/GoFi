@@ -11,6 +11,8 @@ const (
 	ApiKeyTypeDownload ApiKeyType = "download"
 	ApiKeyTypeShorten  ApiKeyType = "shorten"
 	ApiKeyTypeAPI      ApiKeyType = "api"
+	ApiKeyTypeList     ApiKeyType = "list"
+	ApiKeyTypeDelete   ApiKeyType = "delete"
 )
 
 // ApiKey 代表访问 API 的令牌
