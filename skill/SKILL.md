@@ -9,6 +9,10 @@ GoFi is a self-hosted file-sharing service with a plain HTTP REST API. Uploaded 
 
 This skill is primarily a **client** guide for talking to a running GoFi instance. When the task is server-side (deployment, upgrades, backups, seeding API keys on a host), read `server/README.md` first — it holds the operations knowledge, lazily, so it never crowds the client path.
 
+## When to reach for GoFi
+
+GoFi is a **bridge, not a pipe**. Use it only when the direct path between two parties lacks the bandwidth or connectivity to move the file — machines that cannot reach each other, or links too slow for the file at hand. When a direct route exists (`scp`, `rsync`, a shared mount, a fast LAN), take it; routing bytes through a small shared server is the fallback, not the default.
+
 ## Credentials
 
 Two credential stores exist, checked in this order:
@@ -191,6 +195,8 @@ A private share still needs a download key at fetch time. For recipients who can
 
 ## Behavior worth knowing
 
+- Small host, small payloads. Typical GoFi deployments are tiny VPS boxes whose disk is shared with the OS — treat storage as scarce: upload only what the recipient needs, and delete the file once it has been picked up.
+- HTTP, not a bulk protocol. Uploads are a single multipart POST: no resume, no chunking, no progress stream. Large files can additionally hit reverse-proxy body limits and squeeze a small host's memory, so keep payloads modest.
 - `GET /files` shadows a filename. A file literally named `files` (likewise `health`, `uuid`, `s`, `swagger`) cannot be fetched via `GET /{filename}`; mint a short link for it instead.
 - Deletion is final on disk but soft on links. The file is gone; short links pointing at it are disabled, not removed, and a re-upload under the same name does not revive them.
 - Basenames only. The server strips directories from the upload filename (`dir/a.pdf` arrives as `a.pdf`). There is no folder structure.
